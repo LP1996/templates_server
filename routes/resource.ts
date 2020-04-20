@@ -1,71 +1,85 @@
-import path from 'path'
-import fs from 'fs'
 import { Router } from 'express'
+import bodyParser from 'body-parser'
 import multer from 'multer'
 import { ResourceListDTO } from '../dto/resource'
 import Result, { CODE } from '../Result'
-import { stringify, getDirNamesByPath } from '../utils'
-import config from '../config'
+import { stringify } from '../utils'
 import service from '../services/resource'
 
 const router = Router()
-const upload = multer().single('name')
+const upload = multer().single('file')
 
 router.get('/list', (req, res) => {
   const { query: { type } } = req
 
   if (!type) {
-    res.end(stringify(Result.error(CODE.NOT_FOUND, '')))
+    res.end(stringify(Result.error(CODE.PARAM_ERROR, '', 'param type must provide')))
     return
   }
 
-  getDirNamesByPath(config.RESOURCES_PATH).then(dirNames => {
-    const result = dirNames.map(dirName => new ResourceListDTO(dirName, dirName))
-    const response = Result.success<ResourceListDTO[]>(result)
-    res.end(stringify(response))
-  }).catch(err => {
-    res.end(Result.error(CODE.SERVER_ERROR, '', 'get dir names wrong'))
-  })
+  service.list(type as string)
+    .then(resourceInfos => {
+      const result = resourceInfos.map(([resourceName, desc]) => new ResourceListDTO(resourceName, desc))
+      const response = Result.success<ResourceListDTO[]>(result)
+      res.end(stringify(response))
+    })
+    .catch(() => res.end(stringify(Result.error(CODE.SERVER_ERROR, '', 'get dir names wrong'))))
 })
 
 router.get('/down', (req, res) => {
-  const { type, name } = req.query
+  const { type, name, version } = req.query
 
   if (!type || !name) {
     res.end(stringify(Result.error(CODE.NOT_FOUND, '', 'must given both param type, name')))
     return
   }
 
-  res.sendFile(path.resolve(__dirname, '../../dist.zip'))
+  service.down(type as string, name as string, version as string || '')
+    .then(filPath => res.sendFile(filPath))
+    .catch(() => res.end(stringify(Result.error(CODE.NOT_FOUND, '', 'file not found'))))
 })
 
-router.post('/upload', (req, res) => {
+router.post('/add', (req, res) => {
   upload(req, res, err => {
     if (err) {
-      res.end(stringify(Result.error(CODE.PARAM_ERROR, '', 'lost param upload file, filed name is name')))
+      res.end(stringify(Result.error(CODE.PARAM_ERROR, '', 'lost param upload file, filed name is file')))
       return
     }
 
-    const { body: { type, description }, file } = req
+    const { body: { type, name, description }, file } = req
 
-    if (!type || !description) {
-      res.end(stringify(Result.error(CODE.PARAM_ERROR, '', 'lost param type or description')))
+    if (!type || !name || !description) {
+      res.end(stringify(Result.error(CODE.PARAM_ERROR, '', 'lost param type or description or name')))
       return
     }
 
-    const [fileOriginName, ext] = file.originalname.split('.')
+    const [, ext] = file.originalname.split('.')
 
     if (ext !== 'zip') {
       res.end(Result.error(CODE.PARAM_ERROR, '', 'file must be zipped with .zip ext'))
       return
     }
 
-    service.upload(req, res, {
+    service.add({
       file,
       type,
+      name,
       description
-    })
+    }).then(() => res.end(stringify(Result.success('success'))))
+      .catch(() => res.end(stringify(Result.error(CODE.SERVER_ERROR, '', 'save file error'))))
   })
 })
 
+router.post('/delete', bodyParser.urlencoded({ extended: true }), (req, res) => {
+  const { type, name } = req.body
+
+  if (!type || !name) {
+    res.end(stringify(Result.error(CODE.PARAM_ERROR, '', 'param type or name must provide')))
+    return
+  }
+
+  service.delete(type, name)
+    .then(() => res.end(stringify(Result.success('delete resource success'))))
+    .catch(() => res.end(stringify(Result.error(CODE.SERVER_ERROR, '', 'delete resource fail'))))
+})
 export default router
