@@ -1,4 +1,4 @@
-export class TypeDTO {
+export class TypeListDTO {
   public name: string
   public description: string
 

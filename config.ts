@@ -1,6 +1,6 @@
 const config = {
   PORT: 8170,
-  RESOURCES_PATH: '.'
+  TYPES_PATH: './dist/test_interfaces'
 }
 
 export default config

@@ -29,3 +29,14 @@ export const readFile = async (path: string, mode: 'buffer' | 'string' = 'string
 
   return mode === 'buffer' ? buffer : buffer.toString()
 }
+
+export const deleteDir = (path: string) => {
+  if (fs.existsSync(path)) {
+    const files = fs.readdirSync(path);
+    files.forEach(file => {
+      const curPath = `${path}/${file}`
+      fs.statSync(curPath).isDirectory() ? deleteDir(curPath) : fs.unlinkSync(curPath)
+    })
+    fs.rmdirSync(path)
+  }
+}
