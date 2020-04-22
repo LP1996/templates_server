@@ -6,12 +6,21 @@ import config from './config'
 let PORT = config.PORT
 const app = Express()
 
+app.all('*', (req, res, next) => {
+  res.set({
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': '*'
+  })
+  next()
+})
 app.use('/type', typeRouter)
 app.use('/resource', resourceRouter)
 
+
+
 app.on('error', () => {
-  PORT += 1
-  app.listen(PORT, listenSuccess)
+  console.error('listen to port: ' + PORT + 'fail');
 })
 app.listen(PORT, listenSuccess)
 

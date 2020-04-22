@@ -4,6 +4,17 @@ import config from '../config'
 import { getDirNamesByPath, writeFile, deleteDir } from '../utils'
 
 const DESC_FILE_NAME = 'description.txt'
+const DEFAULT_TYPE = 'templates'
+
+try {
+  const defaultTypePath = `${config.TYPES_PATH}/${DEFAULT_TYPE}`
+  if (!fs.existsSync(defaultTypePath)) {
+    fs.mkdirSync(defaultTypePath)
+    fs.writeFileSync(`${defaultTypePath}/${DESC_FILE_NAME}`, '项目模板')
+  }
+} catch (err) {
+  console.error('generate default type fail')
+}
 
 class TypeService {
   async list() {
