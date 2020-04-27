@@ -26,6 +26,21 @@ router.get('/list', (req, res) => {
     .catch(() => res.end(stringify(Result.error(CODE.SERVER_ERROR, '', 'get dir names wrong'))))
 })
 
+router.get('/versions', (req, res) => {
+  const { query: { type, name } } = req
+
+  if (!type || !name) {
+    res.end(stringify(Result.error(CODE.PARAM_ERROR, '', 'param type or name must provide')))
+    return
+  }
+
+  service.version(type as string, name as string)
+    .then(versions => {
+      res.end(stringify(Result.success(versions, 'success')))
+    })
+    .catch(() => res.end(stringify(Result.error(CODE.SERVER_ERROR, '', 'server error'))))
+})
+
 router.get('/down', (req, res) => {
   const { type, name, version } = req.query
 

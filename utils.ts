@@ -40,3 +40,35 @@ export const deleteDir = (path: string) => {
     fs.rmdirSync(path)
   }
 }
+
+export const getDirFiles = (path: string) => {
+  return fs.readdirSync(path, { withFileTypes: true })
+}
+
+export const dateFormat = (format: string, date?: Date) => {
+  const dateObj = date ? date : new Date()
+
+
+  // M: 月份    d: 日    h: 小时    m: 分钟    s: 秒
+  const map: { [index: string]: number } = {
+    'M+' : dateObj.getMonth() + 1,
+    'd+' : dateObj.getDate(),
+    'h+' : dateObj.getHours(),
+    'm+' : dateObj.getMinutes(), 
+    's+' : dateObj.getSeconds()
+  }
+
+  if(/(y+)/.test(format)) {
+    format=format.replace(RegExp.$1, (dateObj.getFullYear() + '').substr(4 - RegExp.$1.length));
+  }
+
+  for(let k in map) {
+    if(new RegExp('('+ k +')').test(format)) {
+      const numberStr = `${map[k]}`
+      format = format.replace(RegExp.$1, (RegExp.$1.length === 1)
+        ? numberStr : (`00${numberStr}`).substr(numberStr.length))
+    }
+  }
+
+  return format
+}

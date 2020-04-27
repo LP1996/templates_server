@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { writeFile, getDirNamesByPath, deleteDir } from '../utils'
+import { writeFile, getDirNamesByPath, deleteDir, dateFormat, getDirFiles, readFile } from '../utils'
 import config from '../config'
 
 interface IUploadFormData {
@@ -10,25 +10,57 @@ interface IUploadFormData {
   description: string
 }
 
+interface IChangelog {
+  date: string,
+  type: '新增' | '更新',
+  filename: string,
+  description: string
+}
+
 const DESC_FILE_NAME = 'description.txt'
+const CHANGE_LOG_FILE_NAME = 'changelog.json'
+const FILE_SEPARATOR = '_'
 
 class ResourceService {
+  // 更新也调用此接口
   async add(formData: IUploadFormData) {
     const { file, type, name, description } = formData
     const { originalname, buffer } = file
     const [fileOriginName, ext] = originalname.split('.')
 
     const resourceRootPath = `${config.TYPES_PATH}/${type}/${name}`
-    const filename = `${resourceRootPath}/${fileOriginName}_${Date.now()}.${ext}`
+    const changedFileName = `${fileOriginName}${FILE_SEPARATOR}${Date.now()}.${ext}`
+    const filename = `${resourceRootPath}/${changedFileName}`
     const descPath = `${resourceRootPath}/${DESC_FILE_NAME}`
+    const changelogPath = `${resourceRootPath}/${CHANGE_LOG_FILE_NAME}`
 
     try {
-      if (!fs.existsSync(resourceRootPath)) {
+      const isRootExists = fs.existsSync(resourceRootPath)
+
+      if (!isRootExists) {
         fs.mkdirSync(resourceRootPath)
       }
 
       await writeFile(filename, buffer)
       writeFile(descPath, description)
+
+      // 写入 changelog
+      const changelog: IChangelog = {
+        date: dateFormat('yyyy-MM-dd hh:mm:ss'),
+        type: isRootExists ? '更新' : '新增',
+        filename: changedFileName,
+        description
+      }
+
+      let changelogArr = []
+      if (isRootExists) {
+        const changelog = fs.readFileSync(changelogPath)
+        changelogArr = JSON.parse(changelog.toString('utf8'))
+      }
+
+      changelogArr.push(changelog)
+      const changelogArrStr = JSON.stringify(changelogArr)
+      writeFile(changelogPath, Buffer.from(changelogArrStr, 'utf8'))
     } catch (err) {
       throw err
     }
@@ -55,6 +87,22 @@ class ResourceService {
       }
 
       return resourceNames.map((resourceName, index) => [resourceName, resourceDescs[index]])
+    } catch (err) {
+      throw err
+    }
+  }
+
+  async version(type: string, name: string) {
+    const changelogFilePath = `${config.TYPES_PATH}/${type}/${name}/${CHANGE_LOG_FILE_NAME}`
+
+    if (!fs.existsSync(changelogFilePath)) {
+      return Promise.reject('no versions log')
+    }
+    
+    try {
+      const changelogArrStr = await readFile(changelogFilePath)
+      const changelogArr: IChangelog[] = JSON.parse(changelogArrStr.toString('utf8'))
+      return changelogArr
     } catch (err) {
       throw err
     }
